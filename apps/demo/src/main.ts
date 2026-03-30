@@ -24,19 +24,15 @@ const elementControls = document.getElementById(
 const playBtn = document.getElementById('play') as HTMLButtonElement;
 const stopBtn = document.getElementById('stop') as HTMLButtonElement;
 const tempoSlider = document.getElementById('tempoSlider') as HTMLInputElement;
-const tempoOutput = document.getElementById('tempo') as HTMLDivElement;
-tempoOutput.innerHTML = tempoSlider.value;
+const tempoInput = document.getElementById('tempoInput') as HTMLInputElement;
 const pitchSlider = document.getElementById('pitchSlider') as HTMLInputElement;
-const pitchOutput = document.getElementById('pitch') as HTMLDivElement;
-pitchOutput.innerHTML = pitchSlider.value;
+const pitchInput = document.getElementById('pitchInput') as HTMLInputElement;
 const keySlider = document.getElementById('keySlider') as HTMLInputElement;
-const keyOutput = document.getElementById('key') as HTMLDivElement;
-keyOutput.innerHTML = keySlider.value;
+const keyInput = document.getElementById('keyInput') as HTMLInputElement;
 const volumeSlider = document.getElementById(
   'volumeSlider',
 ) as HTMLInputElement;
-const volumeOutput = document.getElementById('volume') as HTMLDivElement;
-volumeOutput.innerHTML = volumeSlider.value;
+const volumeInput = document.getElementById('volumeInput') as HTMLInputElement;
 const currTime = document.getElementById('currentTime') as HTMLSpanElement;
 const duration = document.getElementById('duration') as HTMLSpanElement;
 const progressMeter = document.getElementById(
@@ -60,11 +56,48 @@ let pauseOffset = 0;
 let rafId = 0;
 let currentTempo = 1;
 let currentPitch = 1;
+let currentKey = 0;
+let currentVolume = 1;
 let activeMode: SourceMode = 'buffer';
 let currentObjectUrl: string | undefined;
 
 const DEFAULT_SOURCE_URL = './bensound-actionable.mp3';
 const DEFAULT_SOURCE_NAME = 'bensound-actionable.mp3';
+
+function formatControlValue(value: number, digits: number): string {
+  return digits === 0 ? String(Math.round(value)) : value.toFixed(digits);
+}
+
+function bindNumericControl(options: {
+  range: HTMLInputElement;
+  input: HTMLInputElement;
+  digits: number;
+  apply: (value: number) => void;
+}): (value: number) => void {
+  const { range, input, digits, apply } = options;
+  const min = Number(range.min);
+  const max = Number(range.max);
+
+  const setValue = (rawValue: number): void => {
+    if (!Number.isFinite(rawValue)) {
+      input.value = formatControlValue(Number(range.value), digits);
+      return;
+    }
+
+    let value = Math.min(max, Math.max(min, rawValue));
+    value = digits === 0 ? Math.round(value) : Number(value.toFixed(digits));
+
+    range.value = String(value);
+    input.value = formatControlValue(value, digits);
+    apply(value);
+  };
+
+  range.addEventListener('input', () => setValue(Number(range.value)));
+  input.addEventListener('change', () => setValue(Number(input.value)));
+  setValue(Number(range.value));
+
+  return setValue;
+}
 
 // --- Code snippets ---
 const BUFFER_CODE = `import { SoundTouchNode } from '@soundtouchjs/audio-worklet';
@@ -251,6 +284,66 @@ function elementPlay(): void {
   audioEl.play();
 }
 
+const setTempo = bindNumericControl({
+  range: tempoSlider,
+  input: tempoInput,
+  digits: 2,
+  apply: (newTempo) => {
+    if (activeMode === 'buffer') {
+      if (isPlaying) {
+        pauseOffset += (audioCtx.currentTime - playStartTime) * currentTempo;
+        playStartTime = audioCtx.currentTime;
+      }
+      if (sourceNode) sourceNode.playbackRate.value = newTempo;
+    } else {
+      audioEl.preservesPitch = false;
+      audioEl.playbackRate = newTempo;
+    }
+
+    currentTempo = newTempo;
+    if (stNode) {
+      stNode.playbackRate.value = currentTempo;
+      stNode.pitch.value = currentPitch;
+    }
+  },
+});
+
+const setPitch = bindNumericControl({
+  range: pitchSlider,
+  input: pitchInput,
+  digits: 2,
+  apply: (value) => {
+    currentPitch = value;
+    if (stNode) {
+      stNode.pitch.value = currentPitch;
+    }
+  },
+});
+
+const setKey = bindNumericControl({
+  range: keySlider,
+  input: keyInput,
+  digits: 0,
+  apply: (value) => {
+    currentKey = value;
+    if (stNode) {
+      stNode.pitchSemitones.value = currentKey;
+    }
+  },
+});
+
+const setVolume = bindNumericControl({
+  range: volumeSlider,
+  input: volumeInput,
+  digits: 2,
+  apply: (value) => {
+    currentVolume = value;
+    if (gainNode) {
+      gainNode.gain.value = currentVolume;
+    }
+  },
+});
+
 // --- Mode switching ---
 function setMode(mode: SourceMode): void {
   if (isPlaying) {
@@ -269,17 +362,12 @@ function setMode(mode: SourceMode): void {
 
   currentTempo = 1;
   currentPitch = 1;
-  tempoSlider.value = '1';
-  tempoOutput.innerHTML = '1';
-  pitchSlider.value = '1';
-  pitchOutput.innerHTML = '1';
-  keySlider.value = '0';
-  keyOutput.innerHTML = '0';
-  volumeSlider.value = '1';
-  volumeOutput.innerHTML = '1';
-  stNode?.pitch && (stNode.pitch.value = 1);
-  stNode?.pitchSemitones && (stNode.pitchSemitones.value = 0);
-  gainNode && (gainNode.gain.value = 1);
+  currentKey = 0;
+  currentVolume = 1;
+  setTempo(1);
+  setPitch(1);
+  setKey(0);
+  setVolume(1);
 }
 
 modeBufferBtn.onclick = () => setMode('buffer');
@@ -295,40 +383,6 @@ audioFileInput.addEventListener('change', async () => {
   const [file] = audioFileInput.files ?? [];
   if (!file) return;
   await loadAudioFile(file);
-});
-
-tempoSlider.addEventListener('input', () => {
-  const newTempo = Number(tempoSlider.value);
-  if (activeMode === 'buffer') {
-    if (isPlaying) {
-      pauseOffset += (audioCtx.currentTime - playStartTime) * currentTempo;
-      playStartTime = audioCtx.currentTime;
-    }
-    if (sourceNode) sourceNode.playbackRate.value = newTempo;
-  } else {
-    audioEl.preservesPitch = false;
-    audioEl.playbackRate = newTempo;
-  }
-  currentTempo = newTempo;
-  stNode.playbackRate.value = currentTempo;
-  stNode.pitch.value = currentPitch;
-  tempoOutput.innerHTML = tempoSlider.value;
-});
-
-pitchSlider.addEventListener('input', () => {
-  currentPitch = Number(pitchSlider.value);
-  stNode.pitch.value = currentPitch;
-  pitchOutput.innerHTML = pitchSlider.value;
-});
-
-keySlider.addEventListener('input', () => {
-  stNode.pitchSemitones.value = Number(keySlider.value);
-  keyOutput.innerHTML = keySlider.value;
-});
-
-volumeSlider.addEventListener('input', () => {
-  gainNode.gain.value = Number(volumeSlider.value);
-  volumeOutput.innerHTML = volumeSlider.value;
 });
 
 progressMeter.addEventListener('click', (event: MouseEvent) => {
