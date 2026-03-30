@@ -52,5 +52,9 @@
       "esbuild",
       "nx"
     ]
-  }
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ]
 }

@@ -4,7 +4,7 @@ A real-time audio processing library for pitch shifting, tempo adjustment, and r
 
 ## Monorepo
 
-This project is an [Nx](https://nx.dev) monorepo managed with [pnpm](https://pnpm.io/) workspaces. It publishes two packages:
+This project is an [Nx](https://nx.dev) monorepo that supports both [pnpm](https://pnpm.io/) and [Bun](https://bun.sh/) for local development. It publishes two packages:
 
 | Package                                                           | npm                                       | Description                                                              |
 | ----------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------ |
@@ -63,13 +63,19 @@ See each package's README for full API documentation.
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) >= 20
-- [pnpm](https://pnpm.io/) >= 10
+- [pnpm](https://pnpm.io/) >= 10 or [Bun](https://bun.sh/) >= 1.3
 
 ### Setup
 
 ```sh
 pnpm install
 ```
+
+```sh
+bun install
+```
+
+Both lockfiles are kept in the repo so contributors can use either package manager.
 
 ### Commands
 
@@ -78,6 +84,13 @@ pnpm build              # Build all projects
 pnpm typecheck          # Typecheck all projects
 pnpm dev                # Start demo dev server (Vite on port 8080)
 pnpm prettier           # Format all files
+```
+
+```sh
+bun run build           # Build all projects
+bun run typecheck       # Typecheck all projects
+bun run dev             # Start demo dev server (Vite on port 8080)
+bun run prettier        # Format all files
 ```
 
 Individual project commands via Nx:
@@ -90,10 +103,22 @@ pnpm nx test audio-worklet   # Run audio-worklet tests
 pnpm nx dev demo             # Dev server with HMR
 ```
 
+```sh
+bun x nx build core          # Build @soundtouchjs/core
+bun x nx build audio-worklet # Build @soundtouchjs/audio-worklet
+bun x nx test core           # Run core tests
+bun x nx test audio-worklet  # Run audio-worklet tests
+bun x nx dev demo            # Dev server with HMR
+```
+
 ### Running the demo
 
 ```sh
 pnpm dev
+```
+
+```sh
+bun run dev
 ```
 
 Opens a browser at `http://localhost:8080` with sliders for tempo, pitch, key, and volume. The demo uses `@soundtouchjs/audio-worklet` under the hood.
