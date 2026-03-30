@@ -43,6 +43,8 @@ const progressMeter = document.getElementById(
   'progressMeter',
 ) as HTMLProgressElement;
 const audioEl = document.getElementById('audioEl') as HTMLAudioElement;
+const audioFileInput = document.getElementById('audioFile') as HTMLInputElement;
+const sourceName = document.getElementById('sourceName') as HTMLSpanElement;
 const codeBlock = document.getElementById('codeBlock') as HTMLDivElement;
 
 // --- State ---
@@ -59,6 +61,10 @@ let rafId = 0;
 let currentTempo = 1;
 let currentPitch = 1;
 let activeMode: SourceMode = 'buffer';
+let currentObjectUrl: string | undefined;
+
+const DEFAULT_SOURCE_URL = './bensound-actionable.mp3';
+const DEFAULT_SOURCE_NAME = 'bensound-actionable.mp3';
 
 // --- Code snippets ---
 const BUFFER_CODE = `import { SoundTouchNode } from '@soundtouchjs/audio-worklet';
@@ -120,15 +126,62 @@ async function init(): Promise<void> {
 
 const ready = init();
 
-async function loadAudioBuffer(url: string): Promise<void> {
+function resetPlaybackState(): void {
+  if (sourceNode) {
+    sourceNode.onended = null;
+    sourceNode.stop();
+    sourceNode.disconnect();
+    sourceNode = undefined;
+  }
+  audioEl.pause();
+  audioEl.currentTime = 0;
+  cancelAnimationFrame(rafId);
+  isPlaying = false;
+  pauseOffset = 0;
+  playStartTime = 0;
+  progressMeter.value = 0;
+  currTime.innerHTML = formatTime(0);
+  playBtn.removeAttribute('disabled');
+}
+
+function updateSourceName(name: string): void {
+  sourceName.textContent = name;
+}
+
+function revokeCurrentObjectUrl(): void {
+  if (!currentObjectUrl) return;
+  URL.revokeObjectURL(currentObjectUrl);
+  currentObjectUrl = undefined;
+}
+
+async function loadAudioSource(
+  source: { buffer: ArrayBuffer; src: string; name: string },
+  objectUrl?: string,
+): Promise<void> {
   playBtn.setAttribute('disabled', 'disabled');
   await ready;
-  const response = await fetch(url);
-  const buffer = await response.arrayBuffer();
-  audioBuffer = await audioCtx.decodeAudioData(buffer);
+  resetPlaybackState();
+  revokeCurrentObjectUrl();
+  currentObjectUrl = objectUrl;
+  audioEl.src = source.src;
+  audioEl.load();
+  audioBuffer = await audioCtx.decodeAudioData(source.buffer);
   pauseOffset = 0;
   duration.innerHTML = formatTime(audioBuffer.duration);
+  updateSourceName(source.name);
   playBtn.removeAttribute('disabled');
+}
+
+async function loadAudioBuffer(url: string, name: string): Promise<void> {
+  const response = await fetch(url);
+  const buffer = await response.arrayBuffer();
+  await loadAudioSource({ buffer, src: url, name });
+}
+
+async function loadAudioFile(file: File): Promise<void> {
+  const buffer = await file.arrayBuffer();
+  const objectUrl = URL.createObjectURL(file);
+  await loadAudioSource({ buffer, src: objectUrl, name: file.name }, objectUrl);
 }
 
 function connectAudioElement(): void {
@@ -233,11 +286,16 @@ modeBufferBtn.onclick = () => setMode('buffer');
 modeElementBtn.onclick = () => setMode('element');
 
 // --- Load and set initial mode ---
-loadAudioBuffer('./bensound-actionable.mp3');
+loadAudioBuffer(DEFAULT_SOURCE_URL, DEFAULT_SOURCE_NAME);
 setMode('buffer');
 
 playBtn.onclick = bufferPlay;
 stopBtn.onclick = () => bufferPause();
+audioFileInput.addEventListener('change', async () => {
+  const [file] = audioFileInput.files ?? [];
+  if (!file) return;
+  await loadAudioFile(file);
+});
 
 tempoSlider.addEventListener('input', () => {
   const newTempo = Number(tempoSlider.value);

@@ -46,6 +46,17 @@
         color: #fff;
       }
 
+      .source-picker {
+        display: grid;
+        gap: 8px;
+        margin: 16px 0;
+        max-width: 400px;
+      }
+
+      .source-label {
+        font-size: 14px;
+      }
+
       #codeBlock {
         margin-top: 16px;
         background: #1e1e1e;
@@ -72,6 +83,13 @@
       <button id="modeBuffer" class="active">AudioBuffer</button>
       <button id="modeElement">Audio Element</button>
     </div>
+    <div class="source-picker">
+      <label for="audioFile">Load your own audio file</label>
+      <input id="audioFile" type="file" accept="audio/*" />
+      <div class="source-label">
+        Current source: <span id="sourceName"></span>
+      </div>
+    </div>
     <div id="bufferControls">
       <button id="play" disabled>Play</button>
       <button id="stop">Pause</button>
@@ -81,7 +99,7 @@
       </div>
     </div>
     <div id="elementControls" style="display: none">
-      <audio id="audioEl" src="./bensound-actionable.mp3" controls></audio>
+      <audio id="audioEl" controls></audio>
     </div>
     Rate:
     <input
