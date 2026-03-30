@@ -323,7 +323,7 @@ pitchSlider.addEventListener('input', () => {
 
 keySlider.addEventListener('input', () => {
   stNode.pitchSemitones.value = Number(keySlider.value);
-  keyOutput.innerHTML = String(Number(keySlider.value) / 2);
+  keyOutput.innerHTML = keySlider.value;
 });
 
 volumeSlider.addEventListener('input', () => {
